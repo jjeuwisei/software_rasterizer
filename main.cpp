@@ -1,6 +1,8 @@
 #include <windows.h>
 using namespace std;
 
+static bool Running;
+
 LRESULT CALLBACK MainWindowCallback(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
   LRESULT Result = 0;
   switch(msg) 
@@ -11,10 +13,10 @@ LRESULT CALLBACK MainWindowCallback(HWND hwnd, UINT msg, WPARAM wparam, LPARAM l
       //   hBitmap = nullptr;
       // }
       // CleanupOffScreenDC();
-      DestroyWindow(hwnd);
+      Running = false;
       break;
     case WM_DESTROY:
-      PostQuitMessage(0);
+      Running = false;
       break;
     case WM_LBUTTONDOWN:
       // is_drawing = true;
@@ -86,9 +88,10 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
       nullptr, nullptr, Instance, nullptr);
       if (WindowHandle) 
       {
-        MSG Message;
-        for(;;) 
+        Running = true;
+        while(Running) 
         {
+          MSG Message;
           BOOL MessageResult = GetMessage(&Message, 0, 0, 0);
           if(MessageResult > 0)
           {
