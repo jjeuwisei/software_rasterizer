@@ -1,9 +1,62 @@
 #include <windows.h>
+#include <stdint.h>
 using namespace std;
 
-static bool Running;
 
-LRESULT CALLBACK MainWindowCallback(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
+static bool Running;
+static BITMAPINFO BitmapInfo;
+static void *BitmapMemory;
+static int BitmapWidth;
+static int BitmapHeight;
+
+static void Win32ResizeDIBSection(int Width, int Height)
+{
+  if(BitmapMemory)
+  {
+    VirtualFree(BitmapMemory, 0, MEM_RELEASE);
+  }
+  BitmapWidth = Width;
+  BitmapHeight = Height;
+  BitmapInfo.bmiHeader.biSize = sizeof(BitmapInfo.bmiHeader);
+  BitmapInfo.bmiHeader.biWidth = BitmapWidth;
+  BitmapInfo.bmiHeader.biHeight = -BitmapHeight;
+  BitmapInfo.bmiHeader.biPlanes = 1;
+  BitmapInfo.bmiHeader.biBitCount = 32;
+  BitmapInfo.bmiHeader.biCompression = BI_RGB;
+  
+  int BytesPerPixel = 4;
+  int BitmapMemorySize = BitmapWidth * BitmapHeight * BytesPerPixel;
+  BitmapMemory = VirtualAlloc(0, BitmapMemorySize, MEM_COMMIT, PAGE_READWRITE);
+
+  int Stride = Width * BytesPerPixel;
+  uint8_t *Row = (uint8_t *)BitmapMemory;
+  for(int y = 0; y < BitmapHeight; ++y) 
+  {
+    for(int x = 0; x < BitmapWidth; ++x)
+    {
+      *Row = 0x00;
+      Row++;
+      *Row = 0x00;
+      Row++;
+      *Row = 0xFF;
+      Row++;
+      *Row = 0x00;
+      Row++;
+    }
+    Row += Stride;
+  }
+} 
+
+static void Win32UpdateWindow(HDC BitmapDeviceContext, RECT *WindowRect)
+{
+  int WindowWidth = WindowRect->right - WindowRect->left;
+  int WindowHeight = WindowRect->bottom - WindowRect->top; 
+  StretchDIBits(BitmapDeviceContext, 0, 0, BitmapWidth, 
+                BitmapHeight, 0, 0, WindowWidth, WindowHeight, 
+                BitmapMemory, &BitmapInfo, DIB_RGB_COLORS, SRCCOPY);
+}
+
+LRESULT CALLBACK Win32MainWindowCallback(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
   LRESULT Result = 0;
   switch(msg) 
   {
@@ -34,24 +87,28 @@ LRESULT CALLBACK MainWindowCallback(HWND hwnd, UINT msg, WPARAM wparam, LPARAM l
       break;
     case WM_ERASEBKGND:
       return 1;
+    case WM_SIZE:
+      {
+      RECT ClientRect;
+      GetClientRect(hwnd, &ClientRect);
+      int X = ClientRect.left;
+      int Y = ClientRect.top;
+      int Width = ClientRect.right - ClientRect.left;
+      int Height = ClientRect.bottom - ClientRect.top;
+      Win32ResizeDIBSection(Width, Height);
+      }
+      break;
     case WM_PAINT:
       {
         PAINTSTRUCT Paint;
-        HDC hdc = BeginPaint(hwnd, &Paint);
+        HDC BitmapDeviceContext = BeginPaint(hwnd, &Paint);
         int X = Paint.rcPaint.left;
         int Y = Paint.rcPaint.top;
-        int height = Paint.rcPaint.bottom - Paint.rcPaint.top;
-        int width = Paint.rcPaint.right - Paint.rcPaint.left;
-        static DWORD Operation = WHITENESS;
-        PatBlt(hdc, X, Y, width, height, Operation);
-        if(Operation == WHITENESS)
-        { 
-          Operation = BLACKNESS;
-        }
-        else
-        { 
-          Operation = WHITENESS;
-        }
+        int Width = Paint.rcPaint.right - Paint.rcPaint.left;
+        int Height = Paint.rcPaint.bottom - Paint.rcPaint.top;
+        RECT ClientRect;
+        GetClientRect(hwnd, &ClientRect);
+        Win32UpdateWindow(BitmapDeviceContext, &ClientRect);
         EndPaint(hwnd, &Paint);
       }
       break;
@@ -73,7 +130,7 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
 {  
   WNDCLASS wc = {0};
   wc.style = CS_OWNDC | CS_HREDRAW | CS_VREDRAW;
-  wc.lpfnWndProc = MainWindowCallback;
+  wc.lpfnWndProc = Win32MainWindowCallback;
   wc.hInstance = Instance;
   wc.lpszClassName = "TEST";
 
