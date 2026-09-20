@@ -1,6 +1,7 @@
 #include <windows.h>
 #include <xinput.h>
 #include <stdint.h>
+#include <dsound.h>
 using namespace std;
 
 
@@ -29,6 +30,10 @@ X_INPUT_SET_STATE(XInputSetStateStub)
 static x_input_set_state *XInputSetState_ = XInputSetStateStub;
 #define XInputSetState XInputSetState_
 
+
+#define DIRECT_SOUND_CREATE(name) HRESULT WINAPI name(LPGUID pcGuidDevice, LPDIRECTSOUND *ppDS, LPUNKNOWN pUnkOuter)
+typedef DIRECT_SOUND_CREATE(direct_sound_create); 
+
 static void Win32LoadXInput(void)
 {
   HMODULE XInputLibrary = LoadLibraryA("xinput1_4.dll");
@@ -36,13 +41,99 @@ static void Win32LoadXInput(void)
   {
     XInputLibrary = LoadLibraryA("xinput1_3.dll");
   }
-  else
+  if(XInputLibrary)
   {
     XInputGetState = (x_input_get_state *)GetProcAddress(XInputLibrary, "XInputGetState");
     XInputSetState = (x_input_set_state *)GetProcAddress(XInputLibrary, "XInputSetState");
   }
 }
 
+static void Win32InitDSound(HWND Window, int32_t SamplesPerSecond, int32_t BufferSize)
+{
+  HMODULE DSoundLibrary = LoadLibraryA("dsound.dll");
+
+  if(DSoundLibrary)
+  {
+    
+    direct_sound_create *DirectSoundCreate = 
+      (direct_sound_create *)GetProcAddress(DSoundLibrary, "DirectSoundCreate");
+    LPDIRECTSOUND DirectSound;
+
+    if(DirectSoundCreate && SUCCEEDED(DirectSoundCreate(0, &DirectSound, 0)))
+    {      
+      WAVEFORMATEX WaveFormat = {};
+      WaveFormat.wFormatTag = WAVE_FORMAT_PCM;
+      WaveFormat.nChannels = 2;
+      WaveFormat.nSamplesPerSec = SamplesPerSecond;
+      WaveFormat.wBitsPerSample = 16;
+      WaveFormat.nBlockAlign = (WaveFormat.nChannels*WaveFormat.wBitsPerSample) / 8;
+      WaveFormat.nAvgBytesPerSec = WaveFormat.nSamplesPerSec * WaveFormat.nBlockAlign;
+      WaveFormat.cbSize = 0;
+
+      if(SUCCEEDED(DirectSound->SetCooperativeLevel(Window, DSSCL_PRIORITY)))
+      {
+        //primary buffer
+        //
+        DSBUFFERDESC BufferDescription = {};
+        BufferDescription.dwSize = sizeof(BufferDescription);
+        BufferDescription.dwFlags = DSBCAPS_PRIMARYBUFFER;
+        LPDIRECTSOUNDBUFFER PrimaryBuffer;
+        
+        if(SUCCEEDED(DirectSound->CreateSoundBuffer(&BufferDescription, &PrimaryBuffer, 0)))
+        {
+          HRESULT Error = PrimaryBuffer->SetFormat(&WaveFormat);
+          if(SUCCEEDED(Error))
+            {
+              OutputDebugStringA("primary buffer format set");
+              // finally set the primary buffer
+            }
+          else
+            {
+
+              //
+            }
+        }
+        else
+        {
+
+          //
+        }
+      
+      }
+      else
+      {
+        //Setting cooperative level failed
+      }
+
+      //Secondary Buffer
+      DSBUFFERDESC BufferDescription = {};
+      BufferDescription.dwSize = sizeof(BufferDescription);
+      BufferDescription.dwFlags = 0;
+      BufferDescription.dwBufferBytes = BufferSize;
+      BufferDescription.lpwfxFormat = &WaveFormat;
+      LPDIRECTSOUNDBUFFER SecondaryBuffer;
+
+      HRESULT Error = SecondaryBuffer->SetFormat(&WaveFormat);
+      if(SUCCEEDED(Error))
+      {
+        OutputDebugStringA("secondary buffer created");
+      }
+      else
+      {
+
+      }
+    
+    }
+    else
+    {
+
+    }
+  }
+  else
+  {
+
+  }
+}
 struct RGBBuffer{
   BITMAPINFO Info;
   void *Memory;
@@ -133,58 +224,44 @@ LRESULT CALLBACK Win32MainWindowCallback(HWND WindowHandle, UINT msg, WPARAM wpa
       uint32_t VKCode = wparam;
       bool WasDown = ((lparam  & (1 << 30)) != 0);
       bool IsDown = ((lparam & (1 << 31)) == 0);
-      if(VKCode == 'W')
+      if(WasDown != IsDown)
       {
-        if(IsDown)
+        if(VKCode == 'W')
         {
-          OutputDebugStringA("is");
+           
         }
-        else if(WasDown)
+        else if (VKCode == 'A')
         {
-          OutputDebugStringA("was");
+
         }
-      }
-      else if (VKCode == 'A')
-      {
+        else if (VKCode == 'S')
+        {
 
-      }
-      else if (VKCode == 'S')
-      {
+        }
+        else if (VKCode == 'D')
+        {
 
-      }
-      else if (VKCode == 'D')
-      {
+        }
+        else if (VKCode == 'Q')
+        {
 
-      }
-      else if (VKCode == 'Q')
-      {
+        }
+        else if (VKCode == 'E')
+        {
 
-      }
-      else if (VKCode == 'E')
-      {
+        }
+        else if (VKCode == 'A')
+        {
 
-      }
-      else if (VKCode == 'A')
-      {
+        }
+        else if (VKCode == 'A')
+        {
 
-      }
-      else if (VKCode == 'A')
-      {
-
+        }
       }
     }break;
     case WM_KEYDOWN:
-    {
-      uint32_t VKCode = wparam;
-      bool IsDown = ((lparam & (1 << 31)) == 0);
-      if(VKCode == 'W')
-      {
-      }
-      else if (VKCode == VK_ESCAPE)
-      {
-        Running = false;
-      }
-    }break;
+    break;
     case WM_LBUTTONDOWN:
       // is_drawing = true;
       break;
@@ -220,14 +297,6 @@ LRESULT CALLBACK Win32MainWindowCallback(HWND WindowHandle, UINT msg, WPARAM wpa
   return Result;
 }
 
-void CreateAndRegisterWindow(HINSTANCE Instance) {
-  // wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-  // wc.hIcon = LoadIcon(hInstance, IDI_APPLICATION);
-  // wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
-  // wc.hIconSm = LoadIcon(hInstance, IDI_APPLICATION);
-
-}
-
 int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLine, int ShowCode) 
 {  
   WNDCLASS wc = {0};
@@ -254,6 +323,9 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
         Running = true;
         int xOffset = 0;
         int yOffset = 0;
+
+        Win32InitDSound(WindowHandle, 48000, 48000*sizeof(int16_t)*2);
+
         while(Running) 
         {
           MSG Message;
