@@ -118,6 +118,8 @@ static void Win32InitDSound(HWND Window, int32_t SamplesPerSecond, int32_t Buffe
       BufferDescription.dwBufferBytes = BufferSize;
       BufferDescription.lpwfxFormat = &WaveFormat;
 
+
+
       HRESULT Error = DirectSound->CreateSoundBuffer(&BufferDescription, &SecondaryBuffer, 0);
       if(SUCCEEDED(Error))
       {
@@ -220,6 +222,8 @@ struct win32_sound_output
   int WavePeriod;
   int BytesPerSample;
   int SecondaryBufferSize;
+  int LatencySampleCount;
+  float32_t tSine;
 };
 
 void Win32FillSoundBuffer(win32_sound_output *SoundOutput, DWORD BytesToLock, DWORD BytesToWrite)
@@ -240,12 +244,11 @@ void Win32FillSoundBuffer(win32_sound_output *SoundOutput, DWORD BytesToLock, DW
     for(DWORD SampleIndex = 0; SampleIndex < Region1SampleCount; 
         ++SampleIndex)
     {
-      float32_t t = 2.0 * Pi * (float32_t)SoundOutput->RunningSampleIndex 
-        / (float32_t)SoundOutput->WavePeriod;
-      float32_t SineValue = sinf(t);
+      float32_t SineValue = sinf(SoundOutput->tSine);
       int16_t SampleValue = (int16_t)(SineValue * SoundOutput->ToneVolume);
       *SampleOut++ =  SampleValue;
       *SampleOut++ =  SampleValue;
+      SoundOutput->tSine += 2.0f * Pi * 1.0f / (float32_t)SoundOutput->WavePeriod;
       SoundOutput->RunningSampleIndex++;
     }
 
@@ -254,12 +257,11 @@ void Win32FillSoundBuffer(win32_sound_output *SoundOutput, DWORD BytesToLock, DW
     for(DWORD SampleIndex = 0; SampleIndex < Region2SampleCount; 
         ++SampleIndex)
     {
-      float32_t t = 2.0 * Pi * (float32_t)SoundOutput->RunningSampleIndex 
-        / (float32_t)SoundOutput->WavePeriod;
-      float32_t SineValue = sinf(t);
+      float32_t SineValue = sinf(SoundOutput->tSine);
       int16_t SampleValue = (int16_t)(SineValue * SoundOutput->ToneVolume);
       *SampleOut++ = SampleValue;
       *SampleOut++ = SampleValue;
+      SoundOutput->tSine += 2.0f * Pi * 1.0f / (float32_t)SoundOutput->WavePeriod;        
       SoundOutput->RunningSampleIndex++;
     }
   }
@@ -291,7 +293,7 @@ LRESULT CALLBACK Win32MainWindowCallback(HWND WindowHandle, UINT msg, WPARAM wpa
       {
         if(VKCode == 'W')
         {
-           
+             
         }
         else if (VKCode == 'A')
         {
@@ -395,11 +397,13 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
         SoundOutput.WavePeriod = SoundOutput.SamplesPerSecond/SoundOutput.ToneHz;
         SoundOutput.BytesPerSample = sizeof(int16_t) * 2;
         SoundOutput.SecondaryBufferSize = 
-          SoundOutput.SamplesPerSecond * SoundOutput.BytesPerSample;
+        SoundOutput.SamplesPerSecond * SoundOutput.BytesPerSample;
+        SoundOutput.LatencySampleCount = SoundOutput.SamplesPerSecond / 15 ;
+
         
         Win32InitDSound(WindowHandle, SoundOutput.SamplesPerSecond, 
             SoundOutput.SecondaryBufferSize);
-        Win32FillSoundBuffer(&SoundOutput, 0, SoundOutput.SecondaryBufferSize);
+        Win32FillSoundBuffer(&SoundOutput, 0, SoundOutput.LatencySampleCount * SoundOutput.BytesPerSample);
         SecondaryBuffer->Play(0, 0, DSBPLAY_LOOPING);
 
         int xOffset = 0;
@@ -446,10 +450,10 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
                 xOffset += StickX >> 12;
                 yOffset += StickY >> 12;
                 
-                XINPUT_VIBRATION Vibration;
-                Vibration.wLeftMotorSpeed = 65535;
-                Vibration.wRightMotorSpeed = 65535;
-                XInputSetState(0, &Vibration);
+
+                SoundOutput.ToneHz = 512 + (int)(256.0f * ((float32_t)StickY / 30000.0f));
+                SoundOutput.WavePeriod = SoundOutput.SamplesPerSecond / SoundOutput.ToneHz;
+
             } 
           }
 
@@ -463,19 +467,20 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
           { 
             DWORD BytesToLock = (SoundOutput.RunningSampleIndex 
               * SoundOutput.BytesPerSample) % SoundOutput.SecondaryBufferSize;
+            DWORD TargetCursor = PlayCursor + ((SoundOutput.LatencySampleCount * SoundOutput.BytesPerSample) % SoundOutput.SecondaryBufferSize);
             DWORD BytesToWrite;
-            if(BytesToLock == PlayCursor)
+            if(BytesToLock == TargetCursor)
             {
                 BytesToWrite = 0;
             }
-            else if(BytesToLock > PlayCursor)
+            else if(BytesToLock > TargetCursor)
             {
               BytesToWrite = SoundOutput.SecondaryBufferSize - BytesToLock;
-              BytesToWrite += PlayCursor;
+              BytesToWrite += TargetCursor;
             }
             else 
             {
-              BytesToWrite = PlayCursor - BytesToLock ;
+              BytesToWrite = TargetCursor - BytesToLock ;
             }
           Win32FillSoundBuffer(&SoundOutput, BytesToLock, BytesToWrite);
         }
