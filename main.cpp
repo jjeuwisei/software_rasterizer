@@ -3,6 +3,9 @@
 #include <stdint.h>
 #include <dsound.h>
 #include <math.h>
+#include <stdio.h>
+#include "win32.h"
+
 using namespace std;
 
 typedef float float32_t;
@@ -15,6 +18,9 @@ static int BitmapWidth;
 static int BitmapHeight;
 static LPDIRECTSOUNDBUFFER SecondaryBuffer;
 
+#include "game.cpp"
+
+int64_t Win32Func(int64_t x, int64_t y);
 
 #define X_INPUT_GET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_STATE *pState)
 typedef X_INPUT_GET_STATE(x_input_get_state);
@@ -151,7 +157,7 @@ struct RGBBuffer{
 static RGBBuffer GlobalBackBuffer;
 
 struct WindowDimensions {
-  int Width;
+int Width;
   int Height;
 };
 
@@ -364,6 +370,9 @@ LRESULT CALLBACK Win32MainWindowCallback(HWND WindowHandle, UINT msg, WPARAM wpa
 
 int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLine, int ShowCode) 
 {  
+  LARGE_INTEGER QueryPerformanceResult;
+  QueryPerformanceFrequency(&QueryPerformanceResult);
+  uint64_t QueryPerformance = QueryPerformanceResult.QuadPart;
   WNDCLASS wc = {0};
   
   Win32ResizeDIBSection(&GlobalBackBuffer, 1280, 720);
@@ -408,7 +417,8 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
 
         int xOffset = 0;
         int yOffset = 0;
-        
+        LARGE_INTEGER EndCounter;
+        LARGE_INTEGER LastCounter;
         while(Running) 
         {
           MSG Message;
@@ -467,7 +477,7 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
           { 
             DWORD BytesToLock = (SoundOutput.RunningSampleIndex 
               * SoundOutput.BytesPerSample) % SoundOutput.SecondaryBufferSize;
-            DWORD TargetCursor = PlayCursor + ((SoundOutput.LatencySampleCount * SoundOutput.BytesPerSample) % SoundOutput.SecondaryBufferSize);
+            DWORD TargetCursor = (PlayCursor + (SoundOutput.LatencySampleCount * SoundOutput.BytesPerSample)) % SoundOutput.SecondaryBufferSize;
             DWORD BytesToWrite;
             if(BytesToLock == TargetCursor)
             {
@@ -485,37 +495,29 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
           Win32FillSoundBuffer(&SoundOutput, BytesToLock, BytesToWrite);
         }
         
+          MainLoop();
+          int64_t test = Win32Func(1, 3);
           WindowDimensions Dimensions = Win32GetWindowDimensions(WindowHandle);
           Win32DisplayBuffer(DeviceContext, &GlobalBackBuffer, 
               Dimensions.Width, Dimensions.Height);
           ++xOffset;
-          ++yOffset; 
+          ++yOffset;
+          LARGE_INTEGER LastCounter;
+          LARGE_INTEGER EndCounter;
+          QueryPerformanceCounter(&EndCounter);
+          int64_t CounterElapsed = EndCounter.QuadPart - LastCounter.QuadPart;
+          float32_t MsPerFrame = (float32_t) (1000.0f * CounterElapsed) / (float32_t)QueryPerformance;
+          float32_t FPS = (float32_t) QueryPerformance / (float32_t) CounterElapsed;
+          LastCounter = EndCounter;
+            
+          char Buffer[256];
+          sprintf(Buffer, "%.02fms/f, %0.02fFPS\n", MsPerFrame, FPS);
+          char foo[256];
+          sprintf(foo, "%d -test value \n", test);
+          OutputDebugStringA(foo);
           }
         }
       }
   return 0;
-} 
+}
 
-
-
-
-// auto CreateBitmapFromRGB(char *pdata, int width, int height) -> pair<HBITMAP, void*>{
-//   BITMAPINFO bmi = {0};
-//   bmi.bmiHeader.biSize = sizeof(bmi.bmiHeader);
-//   bmi.bmiHeader.biWidth = width;
-//   bmi.bmiHeader.biHeight = -height;
-//   bmi.bmiHeader.biPlanes = 1;
-//   bmi.bmiHeader.biBitCount = 24;
-//   bmi.bmiHeader.biCompression = BI_RGB;
-//
-//   HDC hdc = GetDC(nullptr);
-//   void *pbits;
-//   HBITMAP hbm = CreateDibSection(hdc, &bmi, DIB_RGB_COLORS, &pbits, nullptr, 0);
-//   if (hbm != nullptr) {
-//     memcpy(pbits, pdata, width * height * 3);
-//   }
-//   ReleaseDC(nullptr, hdc);
-//   return {hbm, pBits};
-// }
-//
-//
