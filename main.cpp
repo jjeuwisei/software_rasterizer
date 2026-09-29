@@ -4,7 +4,9 @@
 #include <dsound.h>
 #include <math.h>
 #include <stdio.h>
-#include "win32.h"
+
+#include "game.h"
+#include "game.cpp"
 
 using namespace std;
 
@@ -18,7 +20,6 @@ static int BitmapWidth;
 static int BitmapHeight;
 static LPDIRECTSOUNDBUFFER SecondaryBuffer;
 
-#include "game.cpp"
 
 int64_t Win32Func(int64_t x, int64_t y);
 
@@ -467,7 +468,17 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
             } 
           }
 
-          Win32ShowGradient(&GlobalBackBuffer, xOffset, yOffset);
+          int16_t Samples[48000/60 * 2];
+          game_sound_output_buffer SoundBuffer = {};
+          SoundBuffer.SamplesPerSecond = SoundOutput.SamplesPerSecond;
+          SoundBuffer.Samples = Samples;
+          SoundBuffer.SampleCount = SoundBuffer.SamplesPerSecond / 60;
+          game_offscreen_buffer Buffer = {};
+          Buffer.Memory = GlobalBackBuffer.Memory;
+          Buffer.Width = GlobalBackBuffer.Width;
+          Buffer.Height= GlobalBackBuffer.Height;
+          Buffer.Stride = GlobalBackBuffer.Stride;
+          GameUpdateAndRender(&Buffer, xOffset, yOffset, &SoundBuffer);
           //Direct Sound Output
           
           DWORD PlayCursor;
@@ -494,9 +505,6 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
             }
           Win32FillSoundBuffer(&SoundOutput, BytesToLock, BytesToWrite);
         }
-        
-          MainLoop();
-          int64_t test = Win32Func(1, 3);
           WindowDimensions Dimensions = Win32GetWindowDimensions(WindowHandle);
           Win32DisplayBuffer(DeviceContext, &GlobalBackBuffer, 
               Dimensions.Width, Dimensions.Height);
@@ -510,11 +518,6 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
           float32_t FPS = (float32_t) QueryPerformance / (float32_t) CounterElapsed;
           LastCounter = EndCounter;
             
-          char Buffer[256];
-          sprintf(Buffer, "%.02fms/f, %0.02fFPS\n", MsPerFrame, FPS);
-          char foo[256];
-          sprintf(foo, "%d -test value \n", test);
-          OutputDebugStringA(foo);
           }
         }
       }
