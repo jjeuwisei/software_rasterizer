@@ -5,8 +5,6 @@
 #include <math.h>
 #include <stdio.h>
 
-#include "game.h"
-#include "game.cpp"
 
 using namespace std;
 
@@ -20,8 +18,8 @@ static int BitmapWidth;
 static int BitmapHeight;
 static LPDIRECTSOUNDBUFFER SecondaryBuffer;
 
+#include "game.cpp"
 
-int64_t Win32Func(int64_t x, int64_t y);
 
 #define X_INPUT_GET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_STATE *pState)
 typedef X_INPUT_GET_STATE(x_input_get_state);
@@ -468,17 +466,17 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
             } 
           }
 
-          int16_t Samples[48000/60 * 2];
-          game_sound_output_buffer SoundBuffer = {};
-          SoundBuffer.SamplesPerSecond = SoundOutput.SamplesPerSecond;
-          SoundBuffer.Samples = Samples;
-          SoundBuffer.SampleCount = SoundBuffer.SamplesPerSecond / 60;
+          // int16_t Samples[48000/60 * 2];
+          // game_sound_output_buffer SoundBuffer = {};
+          // SoundBuffer.SamplesPerSecond = SoundOutput.SamplesPerSecond;
+          // SoundBuffer.Samples = Samples;
+          // SoundBuffer.SampleCount = SoundBuffer.SamplesPerSecond / 60;
           game_offscreen_buffer Buffer = {};
           Buffer.Memory = GlobalBackBuffer.Memory;
           Buffer.Width = GlobalBackBuffer.Width;
-          Buffer.Height= GlobalBackBuffer.Height;
+          Buffer.Height = GlobalBackBuffer.Height;
           Buffer.Stride = GlobalBackBuffer.Stride;
-          GameUpdateAndRender(&Buffer, xOffset, yOffset, &SoundBuffer);
+          GameUpdateAndRender(&Buffer, xOffset, yOffset);
           //Direct Sound Output
           
           DWORD PlayCursor;
