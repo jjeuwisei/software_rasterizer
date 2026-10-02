@@ -14,8 +14,9 @@ struct game_sound_output_buffer
   int16_t *Samples;
 };
 
-static void GameUpdateAndRender(game_offscreen_buffer *Buffer, int xOffset, int yOffset);
+static void GameUpdateAndRender(game_offscreen_buffer *Buffer, game_sound_output_buffer *SoundBuffer, int xOffset, int yOffset, int ToneHz);
 
+static void GameOutputSound(game_sound_output_buffer *SoundBuffer);
 
 #define GAME_H
 #endif
