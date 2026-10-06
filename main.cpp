@@ -3,7 +3,6 @@
 #include <stdint.h>
 #include <dsound.h>
 #include <math.h>
-#include <stdio.h>
 #include <malloc.h>
 
 using namespace std;
@@ -19,7 +18,7 @@ static int BitmapHeight;
 static LPDIRECTSOUNDBUFFER SecondaryBuffer;
 
 #include "game.cpp"
-
+#include "win32_main.h"
 
 #define X_INPUT_GET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_STATE *pState)
 typedef X_INPUT_GET_STATE(x_input_get_state);
@@ -146,19 +145,7 @@ static void Win32InitDSound(HWND Window, int32_t SamplesPerSecond, int32_t Buffe
 
   }
 }
-struct RGBBuffer{
-  BITMAPINFO Info;
-  void *Memory;
-  int Width;
-  int Height;
-  int Stride;
-};
-static RGBBuffer GlobalBackBuffer;
 
-struct WindowDimensions {
-int Width;
-  int Height;
-};
 
 static WindowDimensions Win32GetWindowDimensions(HWND WindowHandle) 
 {
@@ -178,14 +165,17 @@ static void Win32ShowGradient(RGBBuffer *Buffer, int xOffset, int yOffset)
       uint32_t *Pixel = (uint32_t *)Row;
       for(int x = 0; x < Buffer->Width; ++x)
       {
-        uint8_t green = y + yOffset;
-        uint8_t red = x + xOffset;
+        uint8_t green = y;
+        uint8_t red = x;
 
         *Pixel++ = ((red << 16) | (green << 8));
       }
       Row += Buffer->Stride;
     }
 }
+
+
+static RGBBuffer GlobalBackBuffer;
 
 static void Win32ResizeDIBSection(RGBBuffer *Buffer, int WindowWidth, int WindowHeight)
 {
@@ -216,20 +206,6 @@ static void Win32DisplayBuffer(HDC BitmapDeviceContext, RGBBuffer *Buffer, int W
                 Buffer->Memory, &Buffer->Info, DIB_RGB_COLORS, SRCCOPY);
 }
 
-struct win32_sound_output
-{
-
-  int SamplesPerSecond;
-  int RunningSampleIndex;
-  int ToneVolume;
-  int ToneHz;
-  int SquareWavePeriod;
-  int WavePeriod;
-  int BytesPerSample;
-  int SecondaryBufferSize;
-  int LatencySampleCount;
-  float32_t tSine;
-};
 static void Win32ClearBuffer(win32_sound_output *SoundOutput)
 {
   VOID *Region1;
@@ -423,9 +399,6 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
         win32_sound_output SoundOutput = {};
         SoundOutput.SamplesPerSecond = 48000 ;
         SoundOutput.RunningSampleIndex = 0;
-        SoundOutput.ToneVolume = 16000;
-        SoundOutput.ToneHz = 256;
-        SoundOutput.WavePeriod = SoundOutput.SamplesPerSecond/SoundOutput.ToneHz;
         SoundOutput.BytesPerSample = sizeof(int16_t) * 2;
         SoundOutput.SecondaryBufferSize = 
         SoundOutput.SamplesPerSecond * SoundOutput.BytesPerSample;
@@ -439,8 +412,6 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
         SecondaryBuffer->Play(0, 0, DSBPLAY_LOOPING);
 
         int16_t *Samples = (int16_t *)VirtualAlloc(0, SoundOutput.SecondaryBufferSize, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
-        int xOffset = 0;
-        int yOffset = 0;
         LARGE_INTEGER EndCounter;
         LARGE_INTEGER LastCounter;
         while(Running) 
@@ -481,12 +452,8 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
                 int16_t StickX = Pad->sThumbLX;
                 int16_t StickY = Pad->sThumbLY;
 
-                xOffset += StickX >> 12;
-                yOffset += StickY >> 12;
                 
 
-                SoundOutput.ToneHz = 512 + (int)(256.0f * ((float32_t)StickY / 30000.0f));
-                SoundOutput.WavePeriod = SoundOutput.SamplesPerSecond / SoundOutput.ToneHz;
 
             } 
           }
@@ -527,8 +494,7 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
           Buffer.Width = GlobalBackBuffer.Width;
           Buffer.Height = GlobalBackBuffer.Height;
           Buffer.Stride = GlobalBackBuffer.Stride;
-          GameUpdateAndRender(&Buffer, &SoundBuffer, xOffset, yOffset, SoundOutput.ToneHz
-);
+          GameUpdateAndRender(&Buffer, &SoundBuffer);
           //Direct Sound Output
           if(SoundIsValid)
           { 
@@ -538,8 +504,6 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
           WindowDimensions Dimensions = Win32GetWindowDimensions(WindowHandle);
           Win32DisplayBuffer(DeviceContext, &GlobalBackBuffer, 
               Dimensions.Width, Dimensions.Height);
-          ++xOffset;
-          ++yOffset;
           QueryPerformanceCounter(&EndCounter);
           int64_t CounterElapsed = EndCounter.QuadPart - LastCounter.QuadPart;
           float32_t MsPerFrame = (float32_t) (1000.0f * CounterElapsed) / (float32_t)QueryPerformance;

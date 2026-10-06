@@ -36,8 +36,12 @@ static void RenderGradient(game_offscreen_buffer *Buffer, int xOffset, int yOffs
     }
 }
 
-static void GameUpdateAndRender(game_offscreen_buffer *Buffer, game_sound_output_buffer *SoundBuffer, int xOffset, int yOffset, int ToneHz)
+static void GameUpdateAndRender(game_offscreen_buffer *Buffer, game_sound_output_buffer *SoundBuffer)
+
 {
+  static int GreenOffset = 0;
+  static int BlueOffset = 0;
+  static int ToneHz = 256;
   GameOutputSound(SoundBuffer, ToneHz);
-  RenderGradient(Buffer, xOffset, yOffset);
+  RenderGradient(Buffer, GreenOffset, BlueOffset);
 }

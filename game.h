@@ -1,4 +1,5 @@
 #ifndef GAME_H
+#define GAME_H
 
 struct game_offscreen_buffer
 {
@@ -7,6 +8,7 @@ struct game_offscreen_buffer
   int Height;
   int Stride;
 };
+
 struct game_sound_output_buffer
 {
   int SampleCount;
@@ -18,5 +20,4 @@ static void GameUpdateAndRender(game_offscreen_buffer *Buffer, game_sound_output
 
 static void GameOutputSound(game_sound_output_buffer *SoundBuffer);
 
-#define GAME_H
 #endif
