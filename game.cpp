@@ -19,7 +19,7 @@ static void GameOutputSound(game_sound_output_buffer *SoundBuffer, int ToneHz)
   }
 }
 
-static void RenderGradient(game_offscreen_buffer *Buffer, int xOffset, int yOffset)
+static void RenderGradient(game_offscreen_buffer *Buffer, int BlueOffset, int GreenOffset)
 {
   uint8_t *Row = (uint8_t *)Buffer->Memory;
   for(int y = 0; y < Buffer->Height; y++)
@@ -27,21 +27,37 @@ static void RenderGradient(game_offscreen_buffer *Buffer, int xOffset, int yOffs
       uint32_t *Pixel = (uint32_t*)Row;
       for(int x = 0; x < Buffer->Width; x++)
       {
-        uint8_t Green = x + xOffset;
-        uint8_t Red = y + yOffset;
+        uint8_t Blue = x + BlueOffset;
+        uint8_t Green = y + GreenOffset;
 
-        *Pixel++ = (Red << 16) | (Green << 8 );
+        *Pixel++ = (Blue | (Green << 8 ));
       }
       Row += Buffer->Stride;
     }
 }
 
-static void GameUpdateAndRender(game_offscreen_buffer *Buffer, game_sound_output_buffer *SoundBuffer)
-
+static void GameUpdateAndRender(game_input *Input, game_offscreen_buffer *Buffer, game_sound_output_buffer *SoundBuffer)
 {
   static int GreenOffset = 0;
   static int BlueOffset = 0;
   static int ToneHz = 256;
+
+  game_controller_input *Input0 = &Input->Controllers[0];
+  if(Input0->IsAnalog)
+  {
+    ToneHz = 256 + (int)(128.0f*(Input0->EndX));
+    BlueOffset += (int)(4.0f * (Input0->EndY));
+  }
+  else
+  {
+    //Digital
+  }
+
+  if(Input0->Down.EndedDown)
+  {
+    GreenOffset += 1;
+  }
+
   GameOutputSound(SoundBuffer, ToneHz);
   RenderGradient(Buffer, GreenOffset, BlueOffset);
 }
