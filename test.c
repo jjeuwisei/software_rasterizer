@@ -47,7 +47,7 @@ static void GameUpdateAndRender(game_memory *Memory, game_input *Input, game_off
     debug_read_file_result File_Handle = DEBUGPlatformReadFile(File_Name);
     if(File_Handle.Contents)
     {
-      DEBUGPlatformWriteFile("C:/repos/software_rasterizer", File_Handle.ContentsSize, File_Handle.Contents);
+      DEBUGPlatformWriteFile("c:/repos/software_rasterizer/test.c", File_Handle.ContentsSize, File_Handle.Contents);
       DEBUGPlatformFreeFileMemory(File_Handle.Contents);
     }
     else

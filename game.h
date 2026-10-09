@@ -15,9 +15,14 @@
 #define Terabytes(Value) (Gigabytes(Value) * 1024)
 
 #if INTERNAL_BUILD
-static void *DEBUGPlatformReadFile(char *file_name);
+struct debug_read_file_result
+{
+  uint32_t ContentsSize;
+  void* Contents;
+};
+static debug_read_file_result DEBUGPlatformReadFile(char *file_name);
 static void DEBUGPlatformFreeFileMemory(void *Memory);
-static bool DEBUGPlatformWriteEntireFile(void *Memory);
+static bool DEBUGPlatformWriteFile(char * File_Name, uint32_t File_Size, void *Memory);
 #endif
 
 inline uint32_t SafeTruncateUInt64(uint64_t Value)
@@ -100,7 +105,7 @@ struct game_state
 
 static void GameUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buffer *Buffer, game_sound_output_buffer *SoundBuffer);
 
-static void GameOutputSound(game_sound_output_buffer *SoundBuffer);
+static void GameOutputSound(game_sound_output_buffer *SoundBuffer, int ToneHz);
 
 static void RenderGradient(game_offscreen_buffer *Buffer, int Blueoffset, int GreenOffset);
 

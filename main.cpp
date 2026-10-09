@@ -44,9 +44,9 @@ static x_input_set_state *XInputSetState_ = XInputSetStateStub;
 #define DIRECT_SOUND_CREATE(name) HRESULT WINAPI name(LPGUID pcGuidDevice, LPDIRECTSOUND *ppDS, LPUNKNOWN pUnkOuter)
 typedef DIRECT_SOUND_CREATE(direct_sound_create); 
 
-static void *DEBUGPlatformReadFile(char *File_Name)
+static debug_read_file_result DEBUGPlatformReadFile(char *File_Name)
 {
-    void *Result = 0;
+    debug_read_file_result Result = {};
     HANDLE File_Handle = CreateFileA(File_Name, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
     if(File_Handle != INVALID_HANDLE_VALUE)
     {
@@ -54,18 +54,18 @@ static void *DEBUGPlatformReadFile(char *File_Name)
       if(GetFileSizeEx(File_Handle, &File_Size))
       {            
         uint32_t File_Size32 = SafeTruncateUInt64(File_Size.QuadPart);
-        Result = VirtualAlloc(0, File_Size32, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
-
-        if(Result)
+        Result.Contents = VirtualAlloc(0, File_Size32, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE);
+        if(Result.Contents)
         {
           DWORD BytesRead;
-          if(ReadFile(File_Handle, Result, File_Size32, &BytesRead, 0) && (File_Size32 == BytesRead))
+          if(ReadFile(File_Handle, Result.Contents, File_Size32, &BytesRead, 0) && (File_Size32 == BytesRead))
           {
+            Result.ContentsSize = BytesRead;
           }
           else
           {
-            DEBUGPlatformFreeFileMemory(Result);
-            Result = 0;
+            DEBUGPlatformFreeFileMemory(Result.Contents);
+            Result.Contents = 0;
           }
         }
         else
@@ -74,7 +74,6 @@ static void *DEBUGPlatformReadFile(char *File_Name)
       }
       else
       {
-
       }
       CloseHandle(File_Handle);
     }
@@ -83,11 +82,32 @@ static void *DEBUGPlatformReadFile(char *File_Name)
 
 static void DEBUGPlatformFreeFileMemory(void *Memory)
 {
+  if(Memory)
+  {
+    VirtualFree(Memory, 0, MEM_RELEASE);
+  }
 }
 
-static bool DEBUGPlatformWriteFile()
+static bool DEBUGPlatformWriteFile(char *File_Name, uint32_t File_Size, void *Memory)
 {
-
+    bool Result = false;
+    HANDLE File_Handle = CreateFileA(File_Name, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);
+    if(File_Handle != INVALID_HANDLE_VALUE)
+    {
+      DWORD BytesWritten;
+      if(WriteFile(File_Handle, Memory, File_Size, &BytesWritten, 0))
+      {
+        Result = (BytesWritten == File_Size);
+      }
+      else
+      {
+      }
+      CloseHandle(File_Handle);
+    }
+    else
+    {
+    }
+    return Result;
 }
 
 static void Win32LoadXInput(void)
@@ -309,6 +329,13 @@ void Win32FillSoundBuffer(win32_sound_output *SoundOutput, DWORD BytesToLock, DW
   }
 }
 
+
+static void Win32ProcessKeyboardInput(game_button_state *NewState, bool IsDown)
+{
+  NewState->EndedDown = IsDown;
+  ++NewState->HalfTransitionCount;
+}
+
 static void Win32ProcessXInput(DWORD XInputButtonState, game_button_state *OldState, DWORD ButtonBit, game_button_state *NewState)
 {
   NewState->EndedDown = ((XInputButtonState & ButtonBit) == ButtonBit);
@@ -331,49 +358,6 @@ LRESULT CALLBACK Win32MainWindowCallback(HWND WindowHandle, UINT msg, WPARAM wpa
     case WM_DESTROY:
       Running = false;
       break;
-    case WM_KEYUP:
-    {
-      uint32_t VKCode = wparam;
-      bool WasDown = ((lparam  & (1 << 30)) != 0);
-      bool IsDown = ((lparam & (1 << 31)) == 0);
-      if(WasDown != IsDown)
-      {
-        if(VKCode == 'W')
-        {
-             
-        }
-        else if (VKCode == 'A')
-        {
-
-        }
-        else if (VKCode == 'S')
-        {
-
-        }
-        else if (VKCode == 'D')
-        {
-
-        }
-        else if (VKCode == 'Q')
-        {
-
-        }
-        else if (VKCode == 'E')
-        {
-
-        }
-        else if (VKCode == 'A')
-        {
-
-        }
-        else if (VKCode == 'A')
-        {
-
-        }
-      }
-    }break;
-    case WM_KEYDOWN:
-    break;
     case WM_LBUTTONDOWN:
       // is_drawing = true;
       break;
@@ -414,7 +398,7 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
   LARGE_INTEGER QueryPerformanceResult;
   QueryPerformanceFrequency(&QueryPerformanceResult);
   uint64_t QueryPerformance = QueryPerformanceResult.QuadPart;
-  WNDCLASS wc = {0};
+  WNDCLASS wc = {};
   
   Win32ResizeDIBSection(&GlobalBackBuffer, 1280, 720);
   
@@ -478,17 +462,84 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
           while(Running) 
           {
             MSG Message;
+            game_controller_input *KeyboardController = &NewInput->Controllers[0];
+            game_controller_input TempController = {};
+            *KeyboardController = TempController;
+
             while(PeekMessage(&Message, 0, 0, 0, PM_REMOVE) > 0) 
             {
               if(Message.message == WM_QUIT) 
               {
                 Running = false;  
               }
+              switch(Message.message)
+              {
+                case WM_SYSKEYDOWN:
+                case WM_SYSKEYUP:
+                case WM_KEYUP:
+                case WM_KEYDOWN:
+                {
+                  uint32_t VKCode = (uint32_t)Message.wParam;
+                  bool WasDown = ((Message.lParam  & (1 << 30)) != 0);
+                  bool IsDown = ((Message.lParam & (1 << 31)) == 0);
+                  if(WasDown != IsDown)
+                  {
+                    if(VKCode == 'W')
+                    {
+                         
+                    }
+                    else if (VKCode == 'A')
+                    {
+
+                    }
+                    else if (VKCode == 'S')
+                    {
+
+                    }
+                    else if (VKCode == 'D')
+                    {
+
+                    }
+                    else if (VKCode == 'Q')
+                    {
+
+                    }
+                    else if (VKCode == 'E')
+                    {
+
+                    }
+                    else if (VKCode == 'A')
+                    {
+
+                    }
+                    else if (VKCode == 'A')
+                    {
+
+                    }
+                    else if (VKCode == 0x28)
+                    {
+                      Win32ProcessKeyboardInput(&KeyboardController->Down, IsDown);
+                    }
+                    else if (VKCode == 'VK_UP')
+                    {
+
+                    }
+                  }
+                  bool AltKeyWasDown = (Message.lParam & (1 << 29));
+                  if((VKCode == VK_F4) && AltKeyWasDown)
+                  {
+                    Running = false;
+                  }
+                }break;
+              default:
+              {
               TranslateMessage(&Message);
               DispatchMessage(&Message);
+              }
+              }
             } 
             
-            int MaxControllerCount = XUSER_MAX_COUNT;
+            size_t MaxControllerCount = XUSER_MAX_COUNT;
             if(MaxControllerCount > ArrayCount(NewInput->Controllers))
             {
               MaxControllerCount = ArrayCount(NewInput->Controllers);

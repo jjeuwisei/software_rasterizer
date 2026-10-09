@@ -1,0 +1,1 @@
+clang++ -Wall -Wextra -Wno-unused-variable -Wno-unused-parameter -Wno-gnu-anonymous-struct -Wno-null-dereference -Wno-unused-but-set-global -Wno-unused-function -DINTERNAL_BUILD=1 -DSLOW_BUILD=1 -g -O0 main.cpp -o main.exe -luser32 -lgdi32 -lxinput
