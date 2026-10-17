@@ -47,7 +47,7 @@ static void GameUpdateAndRender(game_memory *Memory, game_input *Input, game_off
     debug_read_file_result File_Handle = DEBUGPlatformReadFile(File_Name);
     if(File_Handle.Contents)
     {
-      DEBUGPlatformWriteFile("C:/repos/software_rasterizer", File_Handle.ContentsSize, File_Handle.Contents);
+      DEBUGPlatformWriteFile("test.out", File_Handle.ContentsSize, File_Handle.Contents);
       DEBUGPlatformFreeFileMemory(File_Handle.Contents);
     }
     else
@@ -57,21 +57,40 @@ static void GameUpdateAndRender(game_memory *Memory, game_input *Input, game_off
     GameState->ToneHz = 256;
     Memory->IsInitialized = true;
   }
-
-  game_controller_input *Input0 = &Input->Controllers[0];
-  if(Input0->IsAnalog)
+  
+  for(int ControllerIndex = 0;
+      ControllerIndex < ArrayCount(Input->Controllers); ++ControllerIndex)
   {
-    GameState->ToneHz = 256 + (int)(128.0f*(Input0->EndY));
-    GameState->BlueOffset += (int)(4.0f * (Input0->EndX));
-  }
-  else
-  {
-    //Digital
-  }
-
-  if(Input0->Down.EndedDown)
-  {
-    GameState->GreenOffset += 1;
+    game_controller_input *Controller = &Input->Controllers[ControllerIndex];
+    if(Controller->IsAnalog)
+    {
+      GameState->ToneHz = 256 + (int)(128.0f*(Controller->StickAverageY));
+      GameState->BlueOffset += (int)(4.0f * (Controller->StickAverageX));
+    }
+    else
+    {
+      //Digital
+      if(Controller->MoveLeft.EndedDown)
+      {
+        GameState->GreenOffset -= 1;
+      }
+      if(Controller->MoveRight.EndedDown)
+      {
+        GameState->GreenOffset += 1;
+      }
+      if(Controller->MoveUp.EndedDown)
+      {
+        GameState->BlueOffset -= 1;
+      }
+      if(Controller->MoveDown.EndedDown)
+      {
+        GameState->BlueOffset += 1;
+      }
+    }
+    if(Controller->ActionDown.EndedDown)
+    {
+      GameState->BlueOffset += 1;
+    }
   }
 
   GameOutputSound(SoundBuffer, GameState->ToneHz);

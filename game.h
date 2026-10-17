@@ -56,26 +56,23 @@ struct game_button_state
 struct game_controller_input
 {
   bool IsAnalog;
-  float32_t StartX;
-  float32_t StartY;
+  bool IsConnected;
+  float32_t StickAverageX;
+  float32_t StickAverageY;
 
-  float32_t MinX;
-  float32_t MinY;
-
-  float32_t MaxX;
-  float32_t MaxY;
-
-  float32_t EndX;
-  float32_t EndY;
   union
   {
-    game_button_state Buttons[6];
+    game_button_state Buttons[10];
     struct
     {
-      game_button_state Up;
-      game_button_state Down;
-      game_button_state Left;
-      game_button_state Right;
+      game_button_state ActionUp;
+      game_button_state ActionDown;
+      game_button_state ActionLeft;
+      game_button_state ActionRight;
+      game_button_state MoveUp;
+      game_button_state MoveDown;
+      game_button_state MoveLeft;
+      game_button_state MoveRight;
       game_button_state LeftShoulder;
       game_button_state RightShoulder;
     };
@@ -84,7 +81,7 @@ struct game_controller_input
 
 struct game_input
 {
-  game_controller_input Controllers[4];
+  game_controller_input Controllers[5];
 };
 
 struct game_memory
