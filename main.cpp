@@ -378,19 +378,19 @@ static void Win32ProcessKeyboardMessage(game_controller_input *KeyboardControlle
         {
           if(VKCode == 'W')
           {
-               
+            Win32ProcessKeyboardInput(&KeyboardController->MoveUp, IsDown);
           }
           else if (VKCode == 'A')
           {
-
+            Win32ProcessKeyboardInput(&KeyboardController->MoveLeft, IsDown);
           }
           else if (VKCode == 'S')
           {
-
+            Win32ProcessKeyboardInput(&KeyboardController->MoveDown, IsDown);
           }
           else if (VKCode == 'D')
           {
-
+            Win32ProcessKeyboardInput(&KeyboardController->MoveRight, IsDown);
           }
           else if (VKCode == 'Q')
           {
@@ -404,25 +404,21 @@ static void Win32ProcessKeyboardMessage(game_controller_input *KeyboardControlle
           {
 
           }
-          else if (VKCode == 'A')
-          {
-
-          }
           else if (VKCode == VK_DOWN)
           {
-            Win32ProcessKeyboardInput(&KeyboardController->MoveDown, IsDown);
+            Win32ProcessKeyboardInput(&KeyboardController->ActionDown, IsDown);
           }
           else if (VKCode == VK_UP)
           {
-            Win32ProcessKeyboardInput(&KeyboardController->MoveUp, IsDown);
+            Win32ProcessKeyboardInput(&KeyboardController->ActionUp, IsDown);
           }
           else if (VKCode == VK_LEFT)
           {
-            Win32ProcessKeyboardInput(&KeyboardController->MoveLeft, IsDown);
+            Win32ProcessKeyboardInput(&KeyboardController->ActionLeft, IsDown);
           }
           else if (VKCode == VK_RIGHT)
           {
-            Win32ProcessKeyboardInput(&KeyboardController->MoveRight, IsDown);
+            Win32ProcessKeyboardInput(&KeyboardController->ActionRight, IsDown);
           }
         }
         bool AltKeyWasDown = (Message.lParam & (1 << 29));
@@ -559,8 +555,8 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
           uint64_t CycleCount = __rdtsc();
           while(Running) 
           {
-            game_controller_input *OldKeyboardController = &OldInput->Controllers[0];
-            game_controller_input *NewKeyboardController = &NewInput->Controllers[0];
+            game_controller_input *OldKeyboardController = GetController(OldInput, 0);
+            game_controller_input *NewKeyboardController = GetController(NewInput, 0);
             game_controller_input TempController = {};
             *NewKeyboardController = TempController;
             NewKeyboardController->IsConnected = true;
@@ -570,17 +566,17 @@ int CALLBACK WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR CommandLi
             }
             Win32ProcessKeyboardMessage(NewKeyboardController);
 
-            size_t MaxControllerCount = XUSER_MAX_COUNT;
-            if(MaxControllerCount > ArrayCount(NewInput->Controllers))
+            DWORD MaxControllerCount = XUSER_MAX_COUNT;
+            if(MaxControllerCount > (ArrayCount(NewInput->Controllers)- 1))
             {
-              MaxControllerCount = ArrayCount(NewInput->Controllers);
+              MaxControllerCount = (ArrayCount(NewInput->Controllers)- 1);
             }
             for(DWORD ControllerIndex = 0;
                 ControllerIndex < XUSER_MAX_COUNT; ++ControllerIndex)
             {
               DWORD OurControllerIndex = ControllerIndex + 1; 
-              game_controller_input *OldController = &OldInput->Controllers[OurControllerIndex];
-              game_controller_input *NewController = &NewInput->Controllers[OurControllerIndex];
+              game_controller_input *OldController = GetController(OldInput, OurControllerIndex);
+              game_controller_input *NewController = GetController(NewInput, OurControllerIndex);
 
               XINPUT_STATE ControllerState;
               if(XInputGetState(ControllerIndex, &ControllerState) == ERROR_SUCCESS)

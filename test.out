@@ -61,7 +61,7 @@ static void GameUpdateAndRender(game_memory *Memory, game_input *Input, game_off
   for(int ControllerIndex = 0;
       ControllerIndex < ArrayCount(Input->Controllers); ++ControllerIndex)
   {
-    game_controller_input *Controller = &Input->Controllers[ControllerIndex];
+    game_controller_input *Controller = GetController(Input, ControllerIndex);
     if(Controller->IsAnalog)
     {
       GameState->ToneHz = 256 + (int)(128.0f*(Controller->StickAverageY));
