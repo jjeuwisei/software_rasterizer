@@ -38,6 +38,7 @@ static void RenderGradient(game_offscreen_buffer *Buffer, int BlueOffset, int Gr
 
 static void GameUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buffer *Buffer, game_sound_output_buffer *SoundBuffer)
 {
+  Assert((&Input->Controllers[0].Terminator - &Input->Controllers[0].Buttons[0]) == (ArrayCount(Input->Controllers[0].Buttons)));
   Assert(sizeof(game_state) <= Memory->PermanentStorageSize);
 
   game_state *GameState = (game_state *)Memory->PermanentStorage;

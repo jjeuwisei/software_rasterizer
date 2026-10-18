@@ -69,12 +69,16 @@ struct game_controller_input
       game_button_state ActionDown;
       game_button_state ActionLeft;
       game_button_state ActionRight;
+
       game_button_state MoveUp;
       game_button_state MoveDown;
       game_button_state MoveLeft;
       game_button_state MoveRight;
+
       game_button_state LeftShoulder;
       game_button_state RightShoulder;
+
+      game_button_state Terminator;
     };
   };
 };
